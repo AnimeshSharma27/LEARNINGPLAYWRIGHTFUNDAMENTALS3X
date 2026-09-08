@@ -7,6 +7,28 @@ Everything here is beginner friendly: install Playwright, run the sample tests, 
 
 ---
 
+## Playwright architecture
+
+![Playwright Architecture - The Testing Academy](docs/images/playwright-architecture.png)
+
+Playwright is a **client-server** tool. Understanding the three tiers explains most of its behaviour:
+
+1. **Client libraries** - your test code. Playwright supports JavaScript/TypeScript natively and ships bindings for Java, Python, C# and (community) PHP. Every binding talks the same wire protocol, so the API is nearly identical across languages.
+2. **WebSocket connection (`ws://`)** - the client opens a single, persistent, bidirectional connection to the Playwright server and keeps it open for the whole session. One connection carries every command and every event, which is why Playwright is fast and why it can stream events (console logs, network, dialogs) back to your test in real time. Contrast this with tools that open a new HTTP request per command.
+3. **Node.js server** - the driver process. It translates your API calls into browser protocol messages, and it runs on Node even when your tests are written in Python or Java.
+4. **Browser rendering processes** - the server speaks **CDP** (Chrome DevTools Protocol) to Chromium, and a **patched/extended protocol (CDP+)** to the Playwright builds of Firefox and WebKit. This is why Playwright ships its own browser binaries: the Firefox and WebKit builds carry patches that expose a CDP-like surface.
+
+**Why this matters when you write tests**
+
+| Architecture fact | What you get |
+|---|---|
+| One persistent WebSocket | Fast execution, no per-command HTTP overhead |
+| Server streams events back | Auto-waiting, `page.on('request')`, dialog handling, tracing |
+| Server owns the browser | Parallel isolated `BrowserContext`s instead of full browser restarts |
+| Patched Firefox/WebKit | Same API across all three engines, hence `npx playwright install` |
+
+---
+
 ## 1. Prerequisites
 
 | Tool | Version | Check with |
@@ -89,6 +111,7 @@ LearningPlaywrightFundamentals3x/
 ├── tests/
 │   ├── example.spec.ts        # title assertion on playwright.dev
 │   └── tta-check.spec.ts      # login flow on the TTA practice site (recorded with codegen)
+├── docs/images/               # architecture diagram (png + html source)
 ├── playwright.config.ts       # testDir, reporter, trace, headless, projects
 ├── package.json
 ├── playwright-report/         # generated HTML report (git ignored)
