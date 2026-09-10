@@ -109,8 +109,10 @@ npx playwright install
 ```
 LearningPlaywrightFundamentals3x/
 ├── tests/
-│   ├── example.spec.ts        # title assertion on playwright.dev
-│   └── tta-check.spec.ts      # login flow on the TTA practice site (recorded with codegen)
+│   ├── example.spec.ts        # title assertions on playwright.dev (viewer + admin)
+│   ├── tta-check.spec.ts      # login flow on the TTA practice site (recorded with codegen)
+│   ├── normal_pw.ts           # raw library script: Browser -> Context -> Page
+│   └── multiple_context.ts    # two isolated sessions (admin + viewer) in one browser
 ├── docs/images/               # architecture diagram (png + html source)
 ├── playwright.config.ts       # testDir, reporter, trace, headless, projects
 ├── package.json
@@ -131,7 +133,7 @@ npx playwright test
 npx playwright test tests/tta-check.spec.ts
 
 # run one test by title
-npx playwright test -g "has title"
+npx playwright test -g "admin"
 
 # headed mode (watch the browser)
 npx playwright test --headed
@@ -147,6 +149,13 @@ npx playwright test --project=chromium
 
 # run serially, useful while debugging
 npx playwright test --workers=1
+```
+
+The two library scripts in `tests/` are not specs, so the runner skips them. Run those directly:
+
+```bash
+npx tsx tests/normal_pw.ts
+npx tsx tests/multiple_context.ts
 ```
 
 Open the report after a run:
@@ -248,22 +257,159 @@ await page.pause();
 
 ## 7. What is inside the sample tests
 
-**tests/example.spec.ts** - the classic first test, asserts the page title.
+**tests/example.spec.ts** - the classic first test, asserts the page title. Two tests here, `viewer` and `admin`, so you can watch the runner spin up an isolated context per test and run them in parallel.
 
 ```ts
 import { test, expect } from '@playwright/test';
 
-test('has title', async ({ page }) => {
+test('viewer', async ({ page }) => {
+  await page.goto('https://playwright.dev/');
+  await expect(page).toHaveTitle("Fast and reliable end-to-end testing for modern web apps | Playwright");
+});
+
+test('admin', async ({ page }) => {
   await page.goto('https://playwright.dev/');
   await expect(page).toHaveTitle("Fast and reliable end-to-end testing for modern web apps | Playwright");
 });
 ```
 
+Each `test()` gets its own `page`, and each `page` comes from its own fresh `BrowserContext`. That is the runner doing by hand what section 9 does manually.
+
 **tests/tta-check.spec.ts** - a codegen recording against the TTA practice site, showing `getByRole` and `getByTestId` locators on a login form.
+
+**tests/normal_pw.ts** and **tests/multiple_context.ts** - plain library scripts, not specs. See sections 8 and 9.
 
 ---
 
-## 8. playwright.config.ts explained
+## 8. The Playwright object model: Browser -> Context -> Page
+
+**Concept:** Every Playwright script sits on a three-level hierarchy. A `Browser` is the launched binary (one heavy OS process), a `BrowserContext` is an isolated incognito-style profile inside it (its own cookies, localStorage, cache), and a `Page` is a single tab inside that context.
+
+**Why:** Restarting a whole browser per test is slow; a fresh `BrowserContext` gives you the same clean-slate isolation in milliseconds instead of seconds.
+
+**Q&A - why use this?**
+- **Q: When do I write this by hand instead of using `test({ page })`?** A: Only for scripts outside the test runner - scrapers, demos, one-off automation. Inside `@playwright/test` the runner already builds a fresh context and page for you.
+- **Q: What does a new context actually reset?** A: Cookies, localStorage, sessionStorage, permissions, and cache. What it does NOT reset is the browser process itself, which is why it is fast.
+- **Q: What's the gotcha?** A: Cleanup order. Close in reverse of creation - page, then context, then browser. Forgetting `browser.close()` leaves a Chromium process alive after the script exits.
+
+```mermaid
+flowchart TD
+    A["chromium.launch&#40;&#41;"] --> B[Browser<br/>one OS process]
+    B --> C["browser.newContext&#40;&#41;"]
+    C --> D[BrowserContext<br/>isolated cookies + storage]
+    D --> E["context.newPage&#40;&#41;"]
+    E --> F[Page<br/>a single tab]
+    F --> G["page.close&#40;&#41;"]
+    G --> H["context.close&#40;&#41;"]
+    H --> I["browser.close&#40;&#41;"]
+```
+
+**tests/normal_pw.ts** - the hierarchy spelled out with explicit TypeScript types:
+
+```ts
+import { chromium, Browser, BrowserContext, Page } from "playwright";
+
+async function run() {
+    const browser: Browser = await chromium.launch({ headless: false });
+    const context: BrowserContext = await browser.newContext();
+    const page: Page = await context.newPage();
+
+    await page.goto("https://example.com");
+    console.log("Title:", await page.title());   // Title: Example Domain
+
+    // Cleanup - reverse order of creation
+    await page.close();
+    await context.close();
+    await browser.close();
+}
+
+run();
+```
+
+Note the import: `playwright`, **not** `@playwright/test`. This is the raw library, so the file has no `test()` blocks and is deliberately named `.ts` rather than `.spec.ts` - the runner's default `testMatch` only picks up `*.spec.ts` / `*.test.ts`, so `npx playwright test` ignores it.
+
+Run a library script with a TypeScript executor:
+
+```bash
+npx tsx tests/normal_pw.ts
+# or: npx ts-node tests/normal_pw.ts
+```
+
+| | Library (`playwright`) | Test runner (`@playwright/test`) |
+|---|---|---|
+| You create the browser | yes, manually | no, fixtures do it |
+| Assertions | bring your own | `expect` with auto-retry |
+| Parallelism, retries, report | you build it | built in |
+| Use it for | scraping, scripts, demos | actual test suites |
+
+---
+
+## 9. Multiple contexts: two logged-in users, one browser
+
+**Concept:** One `Browser` can host many `BrowserContext`s at the same time, and each one carries its own session. That lets a single script drive an admin and a viewer side by side without logging out in between.
+
+**Why:** Multi-role flows (admin approves, viewer sees the result) are impossible in one shared session because a second login overwrites the first one's cookies.
+
+**Q&A - why use this?**
+- **Q: When do I reach for it?** A: Any test with two roles at once - admin vs viewer, chat sender vs receiver, seller vs buyer.
+- **Q: What does it replace?** A: Launching a second browser, or logging out and back in mid-test. Both are far slower and flakier.
+- **Q: What's the gotcha?** A: Contexts are isolated, not synchronised. Nothing waits for the other user, so after the admin acts you still need an explicit `expect` on the viewer page to wait for the change.
+
+```mermaid
+flowchart TD
+    B[Browser<br/>chromium.launch] --> AC[adminContext<br/>admin cookies]
+    B --> VC[viewerContext<br/>viewer cookies]
+    AC --> AP[adminPage]
+    VC --> VP[viewerPage]
+    AP --> S1[login as admin]
+    VP --> S2[login as viewer]
+    S1 --> X[Both sessions live<br/>at the same time]
+    S2 --> X
+```
+
+**tests/multiple_context.ts** - two isolated sessions against the same app:
+
+```ts
+import { chromium } from "playwright";
+
+async function multiUserTest() {
+    const browser = await chromium.launch({ headless: false });
+
+    // Admin session
+    const adminContext = await browser.newContext();
+    const adminPage = await adminContext.newPage();
+    await adminPage.goto("https://app.vwo.com/login");
+    console.log("Admin: on login page");
+
+    // Viewer session - separate cookies, same browser
+    const viewerContext = await browser.newContext();
+    const viewerPage = await viewerContext.newPage();
+    await viewerPage.goto("https://app.vwo.com/login");
+    console.log("Viewer: on login page");
+
+    await adminContext.close();
+    await viewerContext.close();
+    await browser.close();
+}
+
+multiUserTest();
+```
+
+The same idea inside the test runner, where you ask for the `browser` fixture instead of `page`:
+
+```ts
+test('admin and viewer see different things', async ({ browser }) => {
+  const admin  = await (await browser.newContext()).newPage();
+  const viewer = await (await browser.newContext()).newPage();
+  // ... drive both pages, then assert
+});
+```
+
+Once each role has a saved storage state, `newContext({ storageState: 'admin.json' })` skips the login UI entirely - see the `--save-storage` codegen flag in section 6.
+
+---
+
+## 10. playwright.config.ts explained
 
 ```ts
 export default defineConfig({
@@ -295,7 +441,7 @@ projects: [
 
 ---
 
-## 9. Traces and debugging
+## 11. Traces and debugging
 
 ```bash
 # force a trace for every test
@@ -309,7 +455,7 @@ The trace viewer gives you a DOM snapshot per action, network calls, console log
 
 ---
 
-## 10. VS Code extension
+## 12. VS Code extension
 
 Install **Playwright Test for VSCode** (Microsoft). It gives you:
 
@@ -320,7 +466,7 @@ Install **Playwright Test for VSCode** (Microsoft). It gives you:
 
 ---
 
-## 11. Locator cheat sheet
+## 13. Locator cheat sheet
 
 ```ts
 page.getByRole('button', { name: 'Submit' })   // preferred, accessibility based
@@ -340,7 +486,7 @@ Order of preference: role -> label -> placeholder -> text -> testid -> CSS/XPath
 
 ---
 
-## 12. Common assertions
+## 14. Common assertions
 
 ```ts
 await expect(page).toHaveTitle(/Playwright/);
@@ -357,7 +503,7 @@ All `expect` calls auto-wait, so you rarely need `waitForTimeout`.
 
 ---
 
-## 13. Troubleshooting
+## 15. Troubleshooting
 
 | Problem | Fix |
 |---------|-----|
@@ -370,7 +516,7 @@ All `expect` calls auto-wait, so you rarely need `waitForTimeout`.
 
 ---
 
-## 14. Useful links
+## 16. Useful links
 
 - Playwright docs: https://playwright.dev/docs/intro
 - Codegen guide: https://playwright.dev/docs/codegen
