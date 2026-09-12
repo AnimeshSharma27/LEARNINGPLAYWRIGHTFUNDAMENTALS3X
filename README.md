@@ -108,11 +108,21 @@ npx playwright install
 
 ```
 LearningPlaywrightFundamentals3x/
-├── tests/
-│   ├── example.spec.ts        # title assertions on playwright.dev (viewer + admin)
-│   ├── tta-check.spec.ts      # login flow on the TTA practice site (recorded with codegen)
-│   ├── normal_pw.ts           # raw library script: Browser -> Context -> Page
-│   └── multiple_context.ts    # two isolated sessions (admin + viewer) in one browser
+├── tests/                     # numbered curriculum, one folder per topic (see section 5)
+│   ├── 01_Basics/
+│   │   ├── 216_example.spec.ts       # title assertions on playwright.dev (viewer + admin)
+│   │   ├── 217_multiple_context.ts   # two isolated sessions in one browser
+│   │   ├── 218_normal_pw.ts          # raw library script: Browser -> Context -> Page
+│   │   ├── 219_tta-check.spec.ts     # login flow on the TTA practice site (codegen)
+│   │   ├── 220_BCP.spec.ts           # the three-level hierarchy, logged step by step
+│   │   ├── 221_TA.spec.ts            # three role contexts via the browser fixture
+│   │   └── 222_Test_Options.spec.ts  # viewport, locale, timezone, geolocation, mobile
+│   ├── 02_TestAnnotations/
+│   │   ├── 223_TestAnnotations.spec.ts  # skip, only, fail, fixme, slow
+│   │   └── 224_TestDescribe.spec.ts     # grouping tests with describe
+│   ├── 03_Locator_Commands/
+│   │   └── 225_LC.spec.ts
+│   └── 04_.. 23_/             # remaining topics, see the curriculum table
 ├── docs/images/               # architecture diagram (png + html source)
 ├── playwright.config.ts       # testDir, reporter, trace, headless, projects
 ├── package.json
@@ -123,14 +133,62 @@ LearningPlaywrightFundamentals3x/
 
 ---
 
-## 5. Running the tests
+## 5. The curriculum: how `tests/` is organised
+
+**Concept:** The `tests/` folder is a numbered syllabus, not a flat dump. Each folder is one topic, in the order it is taught, and specs inside carry a running lesson number (`225_LC.spec.ts`) so a file always maps back to the class it came from.
+
+**Why:** A flat `tests/` folder stops being navigable at about fifteen files; numbered topic folders let you jump straight to the lesson you are revising and let the runner target one topic with a path filter.
+
+**Q&A - why use this?**
+- **Q: Do I need to change `playwright.config.ts` for nested folders?** A: No. `testDir: './tests'` recurses into every subfolder automatically, so specs are discovered at any depth.
+- **Q: Why keep `.gitkeep` files in the empty folders?** A: Git tracks files, not directories. Without a placeholder, an empty topic folder simply would not exist for anyone who clones the repo.
+- **Q: How do I run just one topic?** A: Pass the folder as a path filter: `npx playwright test tests/02_TestAnnotations`. Everything else is skipped.
+
+```mermaid
+flowchart LR
+    A[tests/] --> B[01-03<br/>Fundamentals<br/>basics, annotations, locators]
+    A --> C[04-16<br/>Interactions<br/>tables, frames, alerts, uploads]
+    A --> D[17-21<br/>Test design<br/>assertions, hooks, POM, fixtures]
+    A --> E[22-23<br/>Advanced<br/>AI tooling, API, BDD, CI/CD]
+```
+
+| # | Topic | # | Topic |
+|---|---|---|---|
+| 01 | Basics | 13 | Shadow DOM |
+| 02 | Test Annotations | 14 | File Upload |
+| 03 | Locator Commands | 15 | File Download |
+| 04 | Session Storage | 16 | Scroll to Element |
+| 05 | Allure Reporting | 17 | Expect Assertions |
+| 06 | Multiple Element Filter | 18 | Test Hooks |
+| 07 | WebTables | 19 | Data Driven Testing |
+| 08 | Web Select, Frames, Iframe | 20 | Page Object Model |
+| 09 | Frame / Iframe | 21 | Fixture |
+| 10 | Keyboard, Hover, Drag Drop, Calendar | 22 | Misc AI Concepts |
+| 11 | JS Alerts | 23 | Advance PW Framework |
+| 12 | Handle SVG | | |
+
+The last two folders branch further:
+
+```
+22_Misc_AI_Concepts/          23_Advance_PW_Framework/
+├── 01_Playwright_MCP         ├── 01_API_Testing
+├── 02_Playwright_CLI         ├── 02_Cucumber BDD
+├── 03_Playwright_AI_Agents   ├── 03_AI_Agent Factory
+├── 04_Selenium_To_PW_Migration  └── 04_CI_CD
+└── 05_SKILL_PW_36                  ├── Github Actions
+                                    └── Jenkins
+```
+
+---
+
+## 6. Running the tests
 
 ```bash
 # run everything
 npx playwright test
 
 # run a single file
-npx playwright test tests/tta-check.spec.ts
+npx playwright test tests/01_Basics/219_tta-check.spec.ts
 
 # run one test by title
 npx playwright test -g "admin"
@@ -149,13 +207,16 @@ npx playwright test --project=chromium
 
 # run serially, useful while debugging
 npx playwright test --workers=1
+
+# run one topic folder from the curriculum
+npx playwright test tests/02_TestAnnotations
 ```
 
-The two library scripts in `tests/` are not specs, so the runner skips them. Run those directly:
+The two library scripts in `01_Basics/` are not specs, so the runner skips them. Run those directly:
 
 ```bash
-npx tsx tests/normal_pw.ts
-npx tsx tests/multiple_context.ts
+npx tsx tests/01_Basics/218_normal_pw.ts
+npx tsx tests/01_Basics/217_multiple_context.ts
 ```
 
 Open the report after a run:
@@ -177,7 +238,7 @@ npm run codegen     # playwright codegen
 
 ---
 
-## 6. Codegen: record tests instead of writing them
+## 7. Codegen: record tests instead of writing them
 
 Codegen opens a browser, watches what you click and type, and writes the Playwright code for you. It prefers user-facing locators (`getByRole`, `getByLabel`, `getByTestId`) over brittle CSS/XPath.
 
@@ -255,9 +316,9 @@ await page.pause();
 
 ---
 
-## 7. What is inside the sample tests
+## 8. What is inside the sample tests
 
-**tests/example.spec.ts** - the classic first test, asserts the page title. Two tests here, `viewer` and `admin`, so you can watch the runner spin up an isolated context per test and run them in parallel.
+**tests/01_Basics/216_example.spec.ts** - the classic first test, asserts the page title. Two tests here, `viewer` and `admin`, so you can watch the runner spin up an isolated context per test and run them in parallel.
 
 ```ts
 import { test, expect } from '@playwright/test';
@@ -273,15 +334,15 @@ test('admin', async ({ page }) => {
 });
 ```
 
-Each `test()` gets its own `page`, and each `page` comes from its own fresh `BrowserContext`. That is the runner doing by hand what section 9 does manually.
+Each `test()` gets its own `page`, and each `page` comes from its own fresh `BrowserContext`. That is the runner doing by hand what section 10 does manually.
 
-**tests/tta-check.spec.ts** - a codegen recording against the TTA practice site, showing `getByRole` and `getByTestId` locators on a login form.
+**tests/01_Basics/219_tta-check.spec.ts** - a codegen recording against the TTA practice site, showing `getByRole` and `getByTestId` locators on a login form.
 
-**tests/normal_pw.ts** and **tests/multiple_context.ts** - plain library scripts, not specs. See sections 8 and 9.
+**tests/01_Basics/218_normal_pw.ts** and **217_multiple_context.ts** - plain library scripts, not specs. See sections 9 and 10.
 
 ---
 
-## 8. The Playwright object model: Browser -> Context -> Page
+## 9. The Playwright object model: Browser -> Context -> Page
 
 **Concept:** Every Playwright script sits on a three-level hierarchy. A `Browser` is the launched binary (one heavy OS process), a `BrowserContext` is an isolated incognito-style profile inside it (its own cookies, localStorage, cache), and a `Page` is a single tab inside that context.
 
@@ -304,7 +365,7 @@ flowchart TD
     H --> I["browser.close&#40;&#41;"]
 ```
 
-**tests/normal_pw.ts** - the hierarchy spelled out with explicit TypeScript types:
+**tests/01_Basics/218_normal_pw.ts** - the hierarchy spelled out with explicit TypeScript types:
 
 ```ts
 import { chromium, Browser, BrowserContext, Page } from "playwright";
@@ -331,8 +392,8 @@ Note the import: `playwright`, **not** `@playwright/test`. This is the raw libra
 Run a library script with a TypeScript executor:
 
 ```bash
-npx tsx tests/normal_pw.ts
-# or: npx ts-node tests/normal_pw.ts
+npx tsx tests/01_Basics/218_normal_pw.ts
+# or: npx ts-node tests/01_Basics/218_normal_pw.ts
 ```
 
 | | Library (`playwright`) | Test runner (`@playwright/test`) |
@@ -344,7 +405,7 @@ npx tsx tests/normal_pw.ts
 
 ---
 
-## 9. Multiple contexts: two logged-in users, one browser
+## 10. Multiple contexts: two logged-in users, one browser
 
 **Concept:** One `Browser` can host many `BrowserContext`s at the same time, and each one carries its own session. That lets a single script drive an admin and a viewer side by side without logging out in between.
 
@@ -367,7 +428,7 @@ flowchart TD
     S2 --> X
 ```
 
-**tests/multiple_context.ts** - two isolated sessions against the same app:
+**tests/01_Basics/217_multiple_context.ts** - two isolated sessions against the same app:
 
 ```ts
 import { chromium } from "playwright";
@@ -395,21 +456,174 @@ async function multiUserTest() {
 multiUserTest();
 ```
 
-The same idea inside the test runner, where you ask for the `browser` fixture instead of `page`:
+The same idea inside the test runner, where you ask for the `browser` fixture instead of `page`. **tests/01_Basics/221_TA.spec.ts** takes it to three roles:
 
 ```ts
-test('admin and viewer see different things', async ({ browser }) => {
-  const admin  = await (await browser.newContext()).newPage();
-  const viewer = await (await browser.newContext()).newPage();
-  // ... drive both pages, then assert
+test("BCP - three roles at once", async ({ browser }) => {
+    const adminContext = await browser.newContext();
+    const userContext  = await browser.newContext();
+    const guestContext = await browser.newContext();
+
+    const adminPage = await adminContext.newPage();
+    await adminPage.goto("https://app.thetestingacademy.com/playwright/");
+
+    const userPage = await userContext.newPage();
+    await userPage.goto("https://sdet.live");
+
+    const guestPage = await guestContext.newPage();
+    await guestPage.goto("https://scrolltest.com");
+
+    await adminPage.close();
+    await userPage.close();
+    await guestPage.close();
 });
 ```
 
-Once each role has a saved storage state, `newContext({ storageState: 'admin.json' })` skips the login UI entirely - see the `--save-storage` codegen flag in section 6.
+Ask for `browser` and you own the contexts; ask for `page` and the runner makes one context for you. Note that closing the pages does not close the contexts, in a long suite close the contexts too or they accumulate.
+
+Once each role has a saved storage state, `newContext({ storageState: 'admin.json' })` skips the login UI entirely - see the `--save-storage` codegen flag in section 7.
 
 ---
 
-## 10. playwright.config.ts explained
+## 11. Context options: viewport, locale, timezone, geolocation
+
+**Concept:** `browser.newContext()` takes an options object that configures the emulated environment for every page in that context, screen size, language, timezone, GPS coordinates, permissions and device characteristics.
+
+**Why:** Testing a French user in Paris on an iPhone otherwise means changing your OS settings; context options make that environment a per-test argument instead.
+
+**Q&A - why use this?**
+- **Q: When do I reach for it?** A: Localisation checks, "near me" features that read GPS, and responsive layouts. Anything where the app behaves differently based on who or where the user is.
+- **Q: What does it replace?** A: Separate browser profiles, VPNs, and real devices for the common cases. One browser can run a Paris mobile context and a New York desktop context at once.
+- **Q: What's the gotcha?** A: `geolocation` is ignored unless you also grant `permissions: ['geolocation']`. The page asks the browser, the browser checks the permission, and a context without it silently returns nothing.
+
+```mermaid
+flowchart TD
+    A["browser.newContext&#40;options&#41;"] --> B[viewport<br/>1920x1080]
+    A --> C[locale<br/>fr-FR]
+    A --> D[timezoneId<br/>Europe/Paris]
+    A --> E[geolocation<br/>lat + long]
+    A --> F[permissions<br/>grants geolocation]
+    B & C & D & E & F --> G[Every page in<br/>this context inherits it]
+```
+
+**tests/01_Basics/222_Test_Options.spec.ts** - a French desktop user in Paris:
+
+```ts
+test('context with options', async ({ browser }) => {
+    const context = await browser.newContext({
+        viewport: { width: 1920, height: 1080 },
+        locale: 'fr-FR',
+        timezoneId: 'Europe/Paris',
+        geolocation: { latitude: 48.8566, longitude: 2.3522 },
+        permissions: ['geolocation'],   // without this, geolocation is ignored
+    });
+    const page = await context.newPage();
+    await page.goto('https://app.vwo.com/#login');
+    await context.close();
+});
+```
+
+The same file emulates a phone by hand:
+
+```ts
+const iPhone = {
+    viewport: { width: 375, height: 667 },
+    userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X)',
+    deviceScaleFactor: 2,
+    isMobile: true,
+    hasTouch: true,
+};
+const context = await browser.newContext(iPhone);
+```
+
+Playwright ships those descriptors already, so in real suites prefer the built-in list over hand-rolled objects:
+
+```ts
+import { devices } from '@playwright/test';
+const context = await browser.newContext({ ...devices['iPhone 13'] });
+```
+
+---
+
+## 12. Test annotations: skip, only, fail, fixme, slow
+
+**Concept:** Annotations are modifiers you attach to a `test()` to change whether and how it runs, and `test.describe()` groups related tests under a shared name.
+
+**Why:** Real suites always contain tests that are broken, unfinished, or known-failing; annotations record that intent in code instead of in a commented-out block nobody ever restores.
+
+**Q&A - why use this?**
+- **Q: What's the difference between `skip` and `fixme`?** A: Both stop the test running. `skip` means "not applicable here" (wrong browser, wrong environment), `fixme` means "this is broken and someone owes it a fix".
+- **Q: What does `fail` do that `skip` doesn't?** A: `test.fail()` still runs the test and expects it to fail. If the bug gets fixed and the test starts passing, the run turns red to tell you the annotation is now stale.
+- **Q: What's the gotcha?** A: `test.only` silently disables every other test in its file, and `forbidOnly` in this repo's config fails the whole CI build if one is committed. Never push it.
+
+```mermaid
+flowchart TD
+    T[test&#40;&#41;] --> S["test.skip&#40;&#41;<br/>never runs"]
+    T --> O["test.only&#40;&#41;<br/>runs, silences the file"]
+    T --> F["test.fail&#40;&#41;<br/>runs, must fail"]
+    T --> X["test.fixme&#40;&#41;<br/>skipped, flagged broken"]
+    T --> L["test.slow&#40;&#41;<br/>runs, 3x timeout"]
+    S --> R[Report]
+    O --> R
+    F --> R
+    X --> R
+    L --> R
+```
+
+**tests/02_TestAnnotations/223_TestAnnotations.spec.ts**:
+
+```ts
+test.skip('checkout with PayPal', async ({ page }) => {
+  // never executes
+});
+
+test.fail('cart total is wrong, BUG-451', async () => {
+  expect(90).toBe(100);   // expected to fail, green when it does
+});
+
+test.fixme('upload 2GB file', async () => {
+  // skipped, but flagged as "needs fixing"
+});
+
+test('full regression report', async () => {
+  test.slow();
+  console.log(test.info().timeout);   // 90000 instead of 30000
+});
+
+// conditional: skip only on the browser that is broken
+test('mobile layout', async ({ page, browserName }) => {
+  test.fixme(browserName === 'webkit', 'Safari renders menu wrong');
+  await page.goto("https://sdet.live");
+});
+```
+
+**tests/02_TestAnnotations/224_TestDescribe.spec.ts** - grouping with `describe`, which makes the group name part of every test title:
+
+```ts
+test.describe('Login Page', () => {
+  test('valid credentials', async ({ page }) => { /* ... */ });
+  test('invalid password',  async ({ page }) => { /* ... */ });
+  test.fixme('checkout with PayPal', async ({ page }) => { /* ... */ });
+});
+```
+
+Run one group by its describe name:
+
+```bash
+npx playwright test -g "Login Page"
+```
+
+| Annotation | Runs? | Use it when |
+|---|:---:|---|
+| `test.skip` | no | not applicable in this environment |
+| `test.fixme` | no | broken, needs a fix |
+| `test.fail` | yes | known bug, must keep failing |
+| `test.slow` | yes | legitimately needs 3x the timeout |
+| `test.only` | yes | local debugging only, never commit |
+
+---
+
+## 13. playwright.config.ts explained
 
 ```ts
 export default defineConfig({
@@ -441,7 +655,7 @@ projects: [
 
 ---
 
-## 11. Traces and debugging
+## 14. Traces and debugging
 
 ```bash
 # force a trace for every test
@@ -455,7 +669,7 @@ The trace viewer gives you a DOM snapshot per action, network calls, console log
 
 ---
 
-## 12. VS Code extension
+## 15. VS Code extension
 
 Install **Playwright Test for VSCode** (Microsoft). It gives you:
 
@@ -466,7 +680,7 @@ Install **Playwright Test for VSCode** (Microsoft). It gives you:
 
 ---
 
-## 13. Locator cheat sheet
+## 16. Locator cheat sheet
 
 ```ts
 page.getByRole('button', { name: 'Submit' })   // preferred, accessibility based
@@ -486,7 +700,7 @@ Order of preference: role -> label -> placeholder -> text -> testid -> CSS/XPath
 
 ---
 
-## 14. Common assertions
+## 17. Common assertions
 
 ```ts
 await expect(page).toHaveTitle(/Playwright/);
@@ -503,7 +717,7 @@ All `expect` calls auto-wait, so you rarely need `waitForTimeout`.
 
 ---
 
-## 15. Troubleshooting
+## 18. Troubleshooting
 
 | Problem | Fix |
 |---------|-----|
@@ -516,7 +730,7 @@ All `expect` calls auto-wait, so you rarely need `waitForTimeout`.
 
 ---
 
-## 16. Useful links
+## 19. Useful links
 
 - Playwright docs: https://playwright.dev/docs/intro
 - Codegen guide: https://playwright.dev/docs/codegen

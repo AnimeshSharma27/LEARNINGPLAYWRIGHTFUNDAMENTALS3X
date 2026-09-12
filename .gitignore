@@ -9,3 +9,6 @@ node_modules/
 .env
 # stray codegen screenshots
 abc.png
+
+# macOS
+.DS_Store
