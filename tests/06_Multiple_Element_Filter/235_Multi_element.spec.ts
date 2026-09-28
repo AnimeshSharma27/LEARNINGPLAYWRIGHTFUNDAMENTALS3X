@@ -1,25 +1,15 @@
-import {test , expect} from '@playwright/test';
+import { test, expect, Locator } from '@playwright/test';
 
-test("Basic Verify  how to handle multiple elements", async ({page}) => {
-  
+test('Basic verify how to handle multiple elements ', async ({ page }) => {
+
     await page.goto("https://app.thetestingacademy.com/playwright/multiple_element_filter");
-    const rightPanelLinksText: string[] = await page.locator('a.list-group-item').allInnerTexts();
-    console.log(rightPanelLinksText.length);
+    const rightPanelLinksTexts: Locator[] =  await page.locator('a.list-group-item').all();
+    console.log(rightPanelLinksTexts.length);
 
-    for (const link of rightPanelLinksText) {
-        console.log(link);
+    for (const link of rightPanelLinksTexts) {
+        console.log(await link.getAttribute('href'));
     }
 
-    for(const linkText of rightPanelLinksText){
-        if( linkText === "Forgotten Password"){
-             await page.getByText(linkText).first().click();
-        }
-    }
-
-    const rightPanelLinks = await page.locator('a.list-group-item').all();
-    for (const link of rightPanelLinks) {
-        console.log(await link.getAttribute("href"));
-    }
 
     await page.pause();
 
