@@ -12,3 +12,13 @@ abc.png
 
 # macOS
 .DS_Store
+
+# Saved login session (contains auth cookies)
+user-session.json
+
+# Generated reports
+/allure-results/
+/allure-report/
+/tta-report/
+/reports/
+/.playwright-mcp/
